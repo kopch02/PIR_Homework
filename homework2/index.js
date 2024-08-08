@@ -24,7 +24,7 @@ const yourUtility = (obj) => new Proxy(obj,{
                 obj[prop] = yourUtility({})
             }
             if (prop === 'toJSON') {
-                return () => JSON.parse(JSON.stringify(serializeProxy(target)));
+                return () => serializeProxy(target);
             } else {
                 return Reflect.get(target, prop, receiver)
             }
