@@ -1,43 +1,48 @@
 
-const yourUtility = (obj) => {
-
-    const setObj = (obj, prop, val) => {
-        console.log(obj)
-        console.log(prop)
-        console.log(val)
-        if (!(prop in obj)) {
-            obj[prop] = yourUtility({})
-            console.log(obj[prop])
-            console.log(obj)
-            return obj[prop]
+const serializeProxy = (proxyObj) => {
+    let serialized = {};
+    for (let key in proxyObj) {
+        try {
+            if (proxyObj[key] && typeof proxyObj[key] === 'object') {
+                serialized[key] = serializeProxy(proxyObj[key]);
+            } else {
+                serialized[key] = proxyObj[key];
+            }
+        } catch (e) {
+            console.error(`Ошибка сериализации для ключа ${key}:`, e);
         }
     }
-
-    return new Proxy(obj,{
-        get(target, prop, receiver) {
-            setObj(target, prop, receiver)
-        },
-        set(target, prop, value) {
-            console.log(obj)
-            console.log(prop)
-            console.log(val)
-            target[prop] = value;
-            return true;
-        },
-        toJSON() {
-            return Object.assign({}, this);
-        }
-    })
+    return serialized;
 }
 
+const yourUtility = (obj) => new Proxy(obj,{
+        get(target, prop, receiver) {
+            if (typeof obj[prop] === 'object' && obj[prop] !== null) {
+                return yourUtility(obj[prop]);
+            }
+            if (!(prop in obj)) {
+                obj[prop] = yourUtility({})
+            }
+            if (prop === 'toJSON') {
+                return () => JSON.parse(JSON.stringify(serializeProxy(target)));
+            } else {
+                return Reflect.get(target, prop, receiver)
+            }
+        },
+        
+    })
 
-const ProxiedObject = yourUtility({ x: 10 })
 
-// ProxiedObject.a = 1
-// ProxiedObject: { a: 1, x: 10 }
+const ProxiedObject = yourUtility({ x: 10, f:{q:10} })
 
-ProxiedObject.b.c.d = 2
-// ProxiedObject: { a: 1, b: { c: { d: 2 } }, x: 10 }
+ProxiedObject.a = 1
+
+ProxiedObject.f.b.c.d = 2
+
+ProxiedObject.q.b.c.d = {o:213}
+
+console.log(ProxiedObject)
+console.log(ProxiedObject.q)
+// console.log(ProxiedObject.f.b)
 
 console.log(JSON.stringify(ProxiedObject))
-// out: {"a":1,"b":{"c":{"d":2}},"x":10}
